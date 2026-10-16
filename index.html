@@ -1,0 +1,1100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ingredient Check</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#F6F8F6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0D110F" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ingredients">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: single column scan-report. Sticky input bar, verdict banner dominates, evidence below. */
+:root{
+  --bg:#F6F8F6; --surface:#FFFFFF; --surface-2:#EDF1EE;
+  --fg:#131A15; --muted:#5B6760; --line:#DCE3DE;
+  --accent:#0E6E52;
+  --ok:#0E6E52; --ok-bg:#E3F1EA;
+  --caution:#9A5B00; --caution-bg:#FBEEDA;
+  --stop:#A8282B; --stop-bg:#F8E4E3;
+  --void:#5B6760; --void-bg:#EDF1EE;
+  --display:'Archivo',system-ui,sans-serif;
+  --body:'IBM Plex Sans',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --r:14px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0D110F; --surface:#151B17; --surface-2:#1D2520;
+  --fg:#E7EDE9; --muted:#97A49C; --line:#27312B;
+  --accent:#44C194;
+  --ok:#5BD0A5; --ok-bg:#12291F;
+  --caution:#E0A24B; --caution-bg:#2C2112;
+  --stop:#F0888A; --stop-bg:#2E1516;
+  --void:#97A49C; --void-bg:#1D2520;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0D110F; --surface:#151B17; --surface-2:#1D2520;
+  --fg:#E7EDE9; --muted:#97A49C; --line:#27312B;
+  --accent:#44C194;
+  --ok:#5BD0A5; --ok-bg:#12291F;
+  --caution:#E0A24B; --caution-bg:#2C2112;
+  --stop:#F0888A; --stop-bg:#2E1516;
+  --void:#97A49C; --void-bg:#1D2520;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--fg);
+  font-family:var(--body); font-size:15px; line-height:1.5;
+  -webkit-text-size-adjust:100%;
+  padding-bottom:calc(32px + env(safe-area-inset-bottom,0px));
+}
+img{max-width:100%}
+[hidden]{display:none!important}
+button{font:inherit;color:inherit}
+.wrap{
+  max-width:620px; margin:0 auto;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+
+/* ── header ─────────────────────────────── */
+header{
+  position:sticky; top:0; z-index:40;
+  background:var(--bg); border-bottom:1px solid var(--line);
+  padding-top:env(safe-area-inset-top,0px);
+}
+.hrow{display:flex;align-items:center;gap:10px;padding-block:12px}
+.mark{
+  width:30px;height:30px;border-radius:9px;flex:none;
+  background:var(--accent);color:var(--bg);
+  display:grid;place-items:center;
+  font-family:var(--display);font-weight:700;font-size:15px;
+}
+:root[data-theme="dark"] .mark,
+:root:not([data-theme="light"]) .mark{color:#0D110F}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .mark{color:#FFF}}
+h1{font-family:var(--display);font-weight:700;font-size:17px;margin:0;letter-spacing:-.01em}
+.sub{font-size:11.5px;color:var(--muted);margin:0;line-height:1.3}
+.themebtn{
+  margin-left:auto;background:none;border:1px solid var(--line);
+  border-radius:9px;width:34px;height:34px;cursor:pointer;
+  display:grid;place-items:center;flex:none;
+}
+
+/* ── input modes ────────────────────────── */
+.modes{display:flex;gap:6px;padding-bottom:10px}
+.mode{
+  flex:1;min-width:0;padding:9px 6px;cursor:pointer;
+  background:var(--surface-2);border:1px solid transparent;
+  border-radius:10px;font-size:12.5px;font-weight:500;
+  color:var(--muted);text-align:center;
+}
+.mode[aria-selected="true"]{background:var(--surface);border-color:var(--accent);color:var(--fg);font-weight:600}
+main{padding-top:18px;display:flex;flex-direction:column;gap:18px}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.panel h2{font-family:var(--display);font-size:13px;font-weight:600;margin:0 0 4px;letter-spacing:.02em;text-transform:uppercase;color:var(--muted)}
+.hint{font-size:12.5px;color:var(--muted);margin:0 0 12px;line-height:1.45}
+.field{display:flex;gap:8px;flex-wrap:wrap}
+input[type=text],textarea{
+  flex:1;min-width:0;background:var(--bg);color:var(--fg);
+  border:1px solid var(--line);border-radius:10px;padding:11px 12px;
+  font-family:var(--mono);font-size:15px;
+}
+textarea{font-family:var(--body);min-height:120px;resize:vertical;line-height:1.5}
+input:focus-visible,textarea:focus-visible,button:focus-visible,.mode:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn{
+  background:var(--accent);color:var(--bg);border:none;border-radius:10px;
+  padding:11px 16px;font-weight:600;font-size:14px;cursor:pointer;flex:none;
+}
+:root[data-theme="dark"] .btn,:root:not([data-theme="light"]) .btn{color:#0D110F}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .btn{color:#FFF}}
+.btn.ghost{background:var(--surface-2);color:var(--fg);border:1px solid var(--line)}
+.btn[disabled]{opacity:.5;cursor:default}
+.btn.wide{width:100%}
+
+#cam{width:100%;border-radius:10px;background:#000;aspect-ratio:4/3;object-fit:cover;max-width:100%}
+.camwrap{position:relative}
+.reticle{position:absolute;inset:18% 8%;border:2px solid rgba(255,255,255,.85);border-radius:10px;pointer-events:none}
+
+/* ── verdict ────────────────────────────── */
+.verdict{border-radius:var(--r);padding:18px;border:1px solid}
+.verdict.v-haram{background:var(--stop-bg);border-color:var(--stop)}
+.verdict.v-mushbooh{background:var(--caution-bg);border-color:var(--caution)}
+.verdict.v-ok{background:var(--ok-bg);border-color:var(--ok)}
+.verdict.v-none{background:var(--void-bg);border-color:var(--line)}
+.vtop{display:flex;align-items:flex-start;gap:12px}
+.vicon{width:38px;height:38px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:21px;font-weight:700;font-family:var(--display)}
+.v-haram .vicon{background:var(--stop);color:var(--stop-bg)}
+.v-mushbooh .vicon{background:var(--caution);color:var(--caution-bg)}
+.v-ok .vicon{background:var(--ok);color:var(--ok-bg)}
+.v-none .vicon{background:var(--void);color:var(--void-bg)}
+.vlabel{font-family:var(--display);font-size:21px;font-weight:700;margin:0;line-height:1.15;letter-spacing:-.01em}
+.v-haram .vlabel{color:var(--stop)}
+.v-mushbooh .vlabel{color:var(--caution)}
+.v-ok .vlabel{color:var(--ok)}
+.v-none .vlabel{color:var(--fg)}
+.vsay{font-size:13px;margin:5px 0 0;line-height:1.45}
+.example-tag{
+  display:inline-block;font-size:10.5px;font-weight:600;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--muted);border:1px solid var(--line);
+  border-radius:99px;padding:2px 9px;margin-bottom:10px;background:var(--surface)
+}
+
+/* ── product ────────────────────────────── */
+.prod{display:flex;gap:13px;align-items:flex-start;margin-top:15px;padding-top:15px;border-top:1px solid var(--line)}
+.prod img{width:60px;height:60px;object-fit:contain;border-radius:9px;background:var(--surface);flex:none;border:1px solid var(--line)}
+.pname{font-weight:600;font-size:15px;margin:0;line-height:1.3}
+.pmeta{font-size:12.5px;color:var(--muted);margin:3px 0 0}
+.bc{font-family:var(--mono);font-size:12px;color:var(--muted);margin:3px 0 0}
+
+/* ── findings ───────────────────────────── */
+.findings{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
+.f{display:flex;gap:11px;padding:11px;border-radius:11px;background:var(--surface-2);border-left:3px solid var(--line)}
+.f.s-haram{border-left-color:var(--stop)}
+.f.s-mushbooh{border-left-color:var(--caution)}
+.f.s-note{border-left-color:var(--muted)}
+.f.resolved{opacity:.62}
+.fcode{font-family:var(--mono);font-size:11.5px;font-weight:500;padding:2px 7px;border-radius:6px;background:var(--surface);border:1px solid var(--line);flex:none;height:fit-content;white-space:nowrap}
+.fname{font-weight:600;font-size:13.5px;margin:0;line-height:1.35}
+.fwhy{font-size:12.5px;color:var(--muted);margin:3px 0 0;line-height:1.45}
+.fres{font-size:11.5px;color:var(--ok);margin:5px 0 0;font-weight:500}
+.minw{min-width:0}
+
+/* ── misc ───────────────────────────────── */
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:13px}
+.tag{font-size:11.5px;padding:3px 9px;border-radius:99px;background:var(--surface-2);border:1px solid var(--line);color:var(--muted)}
+.tag.good{color:var(--ok);border-color:var(--ok)}
+details{margin-top:13px;border-top:1px solid var(--line);padding-top:11px}
+summary{cursor:pointer;font-size:12.5px;font-weight:600;color:var(--muted)}
+.ingtext{font-size:12.5px;line-height:1.6;color:var(--muted);margin:9px 0 0;word-break:break-word}
+.src{font-size:11.5px;color:var(--muted);margin:13px 0 0;padding-top:11px;border-top:1px solid var(--line);line-height:1.5}
+.err{background:var(--stop-bg);border:1px solid var(--stop);color:var(--stop);border-radius:11px;padding:12px;font-size:13px;line-height:1.45}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:7px}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation-duration:2s}}
+/* ── crop + OCR ─────────────────────────── */
+.cropwrap{position:relative;touch-action:none;user-select:none;line-height:0;border-radius:10px;overflow:hidden;background:var(--surface-2)}
+.cropwrap canvas{width:100%;height:auto;display:block;max-width:100%}
+.cropshade{position:absolute;inset:0;background:rgba(0,0,0,.52);pointer-events:none}
+.cropbox{position:absolute;border:2px solid var(--accent);box-shadow:0 0 0 9999px rgba(0,0,0,.52);pointer-events:none;border-radius:3px}
+.cropbox::after{content:'';position:absolute;inset:-2px;border:1px dashed rgba(255,255,255,.75);border-radius:3px}
+.ocrbar{height:5px;border-radius:99px;background:var(--surface-2);overflow:hidden;margin-top:9px}
+.ocrbar i{display:block;height:100%;background:var(--accent);width:0;transition:width .25s}
+@media (prefers-reduced-motion:reduce){.ocrbar i{transition:none}}
+.hist{display:flex;flex-direction:column;gap:7px}
+.hitem{display:flex;gap:10px;align-items:center;background:none;border:1px solid var(--line);border-radius:10px;padding:9px 11px;cursor:pointer;text-align:left;width:100%}
+.dot{width:9px;height:9px;border-radius:50%;flex:none}
+.d-haram{background:var(--stop)}.d-mushbooh{background:var(--caution)}.d-ok{background:var(--ok)}.d-none{background:var(--void)}
+.hname{font-size:13.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hbc{font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:auto;flex:none}
+footer{margin-top:26px;padding-top:16px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);line-height:1.55}
+footer strong{color:var(--fg);font-weight:600}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="hrow">
+      <div class="mark" aria-hidden="true">ح</div>
+      <div class="minw">
+        <h1>Ingredient Check</h1>
+        <p class="sub">Screens ingredients against halal criteria</p>
+      </div>
+      <button class="themebtn" id="themeBtn" aria-label="Switch theme" title="Switch theme">◐</button>
+    </div>
+    <div class="modes" role="tablist">
+      <button class="mode" role="tab" id="m-scan"   aria-selected="true"  aria-controls="p-scan">Scan</button>
+      <button class="mode" role="tab" id="m-code"   aria-selected="false" aria-controls="p-code">Barcode</button>
+      <button class="mode" role="tab" id="m-text"   aria-selected="false" aria-controls="p-text">Ingredients</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<main>
+
+  <section class="panel" id="p-scan" role="tabpanel" aria-labelledby="m-scan">
+    <h2>Scan a barcode</h2>
+    <p class="hint" id="scanHint">Point the camera at the barcode, or take a photo of it.</p>
+    <div class="camwrap" id="camWrap" hidden>
+      <video id="cam" playsinline muted></video>
+      <div class="reticle"></div>
+    </div>
+    <div class="field" style="margin-top:10px">
+      <button class="btn" id="liveBtn" hidden>Start camera</button>
+      <button class="btn ghost" id="photoBtn">Take a photo</button>
+    </div>
+    <input type="file" accept="image/*" capture="environment" id="photoInput" hidden>
+  </section>
+
+  <section class="panel" id="p-code" role="tabpanel" aria-labelledby="m-code" hidden>
+    <h2>Type the barcode</h2>
+    <p class="hint">The long number under the bars, usually 8 or 13 digits.</p>
+    <form class="field" id="codeForm">
+      <input type="text" id="codeInput" inputmode="numeric" placeholder="9300675024235" autocomplete="off">
+      <button class="btn" type="submit">Check</button>
+    </form>
+  </section>
+
+  <section class="panel" id="p-text" role="tabpanel" aria-labelledby="m-text" hidden>
+    <h2>Read the ingredients</h2>
+    <p class="hint">For products the database doesn't have. Photograph the label and the app will read it, or paste the text yourself.</p>
+
+    <div class="field" style="margin-bottom:12px">
+      <button class="btn ghost wide" id="ocrBtn" type="button">Photograph the label</button>
+    </div>
+    <input type="file" accept="image/*" capture="environment" id="ocrInput" hidden>
+
+    <div id="cropStage" hidden style="margin-bottom:12px">
+      <p class="hint">Drag a box around just the ingredient list. A tight crop reads much better than the whole packet.</p>
+      <div class="cropwrap" id="cropWrap">
+        <canvas id="cropCanvas"></canvas>
+        <div class="cropbox" id="cropBox"></div>
+      </div>
+      <div class="field" style="margin-top:10px">
+        <button class="btn" id="ocrRun" type="button">Read this area</button>
+        <button class="btn ghost" id="ocrCancel" type="button">Cancel</button>
+      </div>
+      <div class="ocrbar" id="ocrBar" hidden><i></i></div>
+      <p class="hint" id="ocrMsg" style="margin:8px 0 0" hidden></p>
+    </div>
+
+    <form id="textForm">
+      <textarea id="textInput" placeholder="Sugar, palm oil, emulsifier (E471), gelatine, natural flavouring…"></textarea>
+      <div class="field" style="margin-top:10px">
+        <button class="btn wide" type="submit">Check ingredients</button>
+      </div>
+    </form>
+  </section>
+
+  <div id="status" hidden></div>
+  <div id="result"></div>
+
+  <section class="panel" id="histPanel" hidden>
+    <h2>Recent</h2>
+    <div class="hist" id="hist"></div>
+  </section>
+
+  <footer>
+    <p><strong>This is a screening tool, not a ruling.</strong> It reads the ingredient list and flags what needs checking. It cannot know how an animal was slaughtered, what a factory shares equipment with, or what an undisclosed "natural flavouring" is made from. Anything marked <em>Needs checking</em> means ask the manufacturer or look for certification — not that it is forbidden.</p>
+    <p style="margin-bottom:0">Product data from Open Food Facts, a free open database. Classifications are built into this page from published E-number and ingredient sources; scholars differ on several of them, and the reasoning for each flag is shown so you can judge it yourself.</p>
+  </footer>
+
+</main>
+</div>
+
+<script>
+'use strict';
+
+/* ════════════════════════════════════════════════════
+   RULESET
+   v: 'haram' | 'mushbooh' | 'note'
+   animal: true  → a vegan/plant-source confirmation resolves it
+   ════════════════════════════════════════════════════ */
+const HARAM='haram', DOUBT='mushbooh', NOTE='note';
+
+const E_RULES = {
+  /* Prohibited or very high concern */
+  e120  :[HARAM,'Cochineal / Carmine','Red colour extracted from insects. Most halal authorities prohibit it.',false],
+  e441  :[HARAM,'Gelatine','Animal collagen, most often porcine.',true],
+  e542  :[HARAM,'Bone phosphate','Made from ground animal bone.',true],
+  e1000 :[HARAM,'Cholic acid','Taken from bovine bile.',true],
+  e1510 :[HARAM,'Ethanol','Drinking alcohol, used here as a carrier or solvent.',false],
+
+  /* Source-dependent fats and emulsifiers — the common ones */
+  e422  :[DOUBT,'Glycerol (glycerine)','Made from either animal fat or vegetable oil.',true],
+  e430  :[DOUBT,'Polyoxyethylene stearate','Stearate can come from animal fat.',true],
+  e431  :[DOUBT,'Polyoxyethylene stearate','Stearate can come from animal fat.',true],
+  e432  :[DOUBT,'Polysorbate 20','Built on stearic/lauric acid of either origin.',true],
+  e433  :[DOUBT,'Polysorbate 80','Built on oleic acid of either origin.',true],
+  e434  :[DOUBT,'Polysorbate 40','Built on palmitic acid of either origin.',true],
+  e435  :[DOUBT,'Polysorbate 60','Built on stearic acid of either origin.',true],
+  e436  :[DOUBT,'Polysorbate 65','Built on stearic acid of either origin.',true],
+  e442  :[DOUBT,'Ammonium phosphatides','Usually from rapeseed oil, but fat source varies.',true],
+  e445  :[DOUBT,'Glycerol esters of wood rosin','Glycerol component may be animal-derived.',true],
+  e470  :[DOUBT,'Fatty acid salts','Fatty acids can be animal or plant.',true],
+  e471  :[DOUBT,'Mono- and diglycerides','The most common doubtful additive. Made from fats that may be animal or plant.',true],
+  e472  :[DOUBT,'Esters of mono- and diglycerides','Same fat base as E471, so the same question.',true],
+  e473  :[DOUBT,'Sucrose esters of fatty acids','Fatty acids can be animal or plant.',true],
+  e474  :[DOUBT,'Sucroglycerides','Made from fats of either origin.',true],
+  e475  :[DOUBT,'Polyglycerol esters','Made from fats of either origin.',true],
+  e476  :[DOUBT,'Polyglycerol polyricinoleate','Usually castor oil, but glycerol source varies.',true],
+  e477  :[DOUBT,'Propylene glycol esters','Fatty acids can be animal or plant.',true],
+  e478  :[DOUBT,'Lactylated fatty acid esters','Fatty acids can be animal or plant.',true],
+  e479  :[DOUBT,'Thermally oxidised soya oil with mono/diglycerides','Contains mono/diglycerides of uncertain origin.',true],
+  e481  :[DOUBT,'Sodium stearoyl lactylate','Stearic acid can come from animal fat.',true],
+  e482  :[DOUBT,'Calcium stearoyl lactylate','Stearic acid can come from animal fat.',true],
+  e483  :[DOUBT,'Stearyl tartrate','Stearic acid can come from animal fat.',true],
+  e491  :[DOUBT,'Sorbitan monostearate','Stearate can come from animal fat.',true],
+  e492  :[DOUBT,'Sorbitan tristearate','Stearate can come from animal fat.',true],
+  e493  :[DOUBT,'Sorbitan monolaurate','Fatty acid of either origin.',true],
+  e494  :[DOUBT,'Sorbitan monooleate','Oleic acid can come from animal fat.',true],
+  e495  :[DOUBT,'Sorbitan monopalmitate','Fatty acid of either origin.',true],
+  e570  :[DOUBT,'Fatty acids / stearic acid','Can be rendered from animal fat.',true],
+  e572  :[DOUBT,'Magnesium stearate','Stearic acid can come from animal fat.',true],
+  e585  :[DOUBT,'Ferrous lactate','Lactate is usually fermented, occasionally dairy-derived.',true],
+  e626  :[DOUBT,'Guanylic acid','Nucleotides can be taken from fish or meat.',true],
+  e627  :[DOUBT,'Disodium guanylate','Often from sardines or yeast — the label rarely says which.',true],
+  e628  :[DOUBT,'Dipotassium guanylate','Nucleotides can be taken from fish or meat.',true],
+  e629  :[DOUBT,'Calcium guanylate','Nucleotides can be taken from fish or meat.',true],
+  e630  :[DOUBT,'Inosinic acid','Often derived from meat or fish.',true],
+  e631  :[DOUBT,'Disodium inosinate','Commonly made from sardines or meat.',true],
+  e632  :[DOUBT,'Dipotassium inosinate','Commonly made from fish or meat.',true],
+  e633  :[DOUBT,'Calcium inosinate','Commonly made from fish or meat.',true],
+  e634  :[DOUBT,'Calcium ribonucleotides','Commonly made from fish or meat.',true],
+  e635  :[DOUBT,'Disodium ribonucleotides','A blend of E627 and E631, both often fish-derived.',true],
+  e640  :[DOUBT,'Glycine','Can be produced from animal collagen.',true],
+  e904  :[DOUBT,'Shellac','A resin secreted by the lac insect. Scholars differ on it.',false],
+  e910  :[DOUBT,'L-cysteine (various)','May be made from feathers, hair, or by fermentation.',true],
+  e920  :[DOUBT,'L-cysteine','Often from duck feathers or hair; synthetic versions exist.',true],
+  e921  :[DOUBT,'L-cystine','Often from feathers or hair; synthetic versions exist.',true],
+  e1105 :[DOUBT,'Lysozyme','Taken from egg white.',true],
+  e1518 :[DOUBT,'Triacetin (glyceryl triacetate)','Glycerol base may be animal-derived.',true],
+  e153  :[DOUBT,'Vegetable carbon','Charcoal colouring that is occasionally bone-derived.',true],
+  e101  :[NOTE ,'Riboflavin','Usually fermented; very occasionally animal-sourced.',true],
+  e322  :[NOTE ,'Lecithin','Nearly always soy or sunflower. Egg lecithin exists but is rare and usually labelled.',true],
+  e270  :[NOTE ,'Lactic acid','Normally made by fermentation, not from milk, despite the name.',true],
+  e471i :[DOUBT,'Mono- and diglycerides','Made from fats that may be animal or plant.',true],
+
+  /* Clearly permissible — shown so the page can be positive, not only negative */
+  e100:[null,'Curcumin'],       e140:[null,'Chlorophyll'],    e150:[null,'Caramel colour'],
+  e160:[null,'Carotenes'],      e162:[null,'Beetroot red'],   e163:[null,'Anthocyanins'],
+  e170:[null,'Calcium carbonate'], e200:[null,'Sorbic acid'], e202:[null,'Potassium sorbate'],
+  e211:[null,'Sodium benzoate'],e260:[null,'Acetic acid'],    e296:[null,'Malic acid'],
+  e300:[null,'Ascorbic acid'],  e301:[null,'Sodium ascorbate'],e330:[null,'Citric acid'],
+  e331:[null,'Sodium citrate'], e332:[null,'Potassium citrate'],e333:[null,'Calcium citrate'],
+  e334:[null,'Tartaric acid'],  e338:[null,'Phosphoric acid'],e339:[null,'Sodium phosphate'],
+  e340:[null,'Potassium phosphate'],e406:[null,'Agar'],       e407:[null,'Carrageenan'],
+  e410:[null,'Locust bean gum'],e412:[null,'Guar gum'],       e414:[null,'Acacia gum'],
+  e415:[null,'Xanthan gum'],    e418:[null,'Gellan gum'],     e420:[null,'Sorbitol'],
+  e440:[null,'Pectin'],         e450:[null,'Diphosphates'],   e451:[null,'Triphosphates'],
+  e500:[null,'Sodium carbonate'],e503:[null,'Ammonium carbonate'],e509:[null,'Calcium chloride'],
+  e551:[null,'Silicon dioxide'],e575:[null,'Glucono delta-lactone'],e621:[null,'Monosodium glutamate'],
+  e950:[null,'Acesulfame K'],   e951:[null,'Aspartame'],      e954:[null,'Saccharin'],
+  e955:[null,'Sucralose'],      e960:[null,'Steviol glycosides'],e965:[null,'Maltitol'],
+  e967:[null,'Xylitol'],        e968:[null,'Erythritol']
+};
+
+/* Free-text rules. `not` suppresses a match when it appears in the surrounding window. */
+const TEXT_RULES = [
+  {v:HARAM,name:'Pork',animal:false,
+   re:/\b(pork|swine|porcine|bacon|lard|pancetta|prosciutto|chorizo|speck|guanciale)\b/i,
+   why:'Pork and anything rendered from it is prohibited outright.'},
+  {v:HARAM,name:'Ham',animal:false,re:/\bham\b/i,
+   why:'Pork product, prohibited outright.'},
+  {v:HARAM,name:'Blood',animal:false,re:/\b(blood\s*(plasma|meal|powder)?|black\s*pudding|boudin)\b/i,
+   why:'Blood is prohibited outright.'},
+  {v:HARAM,name:'Alcohol',animal:false,
+   re:/\b(alcohol|ethanol|ethyl\s*alcohol)\b/i,
+   not:/\b(cetyl|stearyl|cetearyl|fatty|sugar|benzyl|lanolin)\s*$/i,
+   why:'Intoxicating alcohol is prohibited. Fatty and sugar alcohols are a different thing and are fine.'},
+  {v:HARAM,name:'Wine or spirits',animal:false,
+   re:/\b(wine|beer|rum|brandy|liqueur|sherry|vodka|whisky|whiskey|bourbon|kirsch|marsala|mirin|sake|cognac|amaretto)\b/i,
+   notAfter:/^\s*vinegar\b/i,
+   why:'An alcoholic drink used as an ingredient.'},
+  {v:DOUBT,name:'Wine vinegar',animal:false,re:/\b(wine|cider|malt)\s*vinegar\b/i,
+   why:'Most scholars permit vinegar, holding that fermentation transforms it. A minority do not.'},
+  {v:HARAM,name:'Carmine',animal:false,re:/\b(carmine|cochineal|crimson\s*lake|natural\s*red\s*4)\b/i,
+   why:'Red colour extracted from insects. Most halal authorities prohibit it.'},
+
+  {v:DOUBT,name:'Gelatine',animal:true,re:/\bgelatin[ae]?\b/i,
+   why:'Animal collagen. Porcine unless stated otherwise; beef gelatine still depends on how the animal was slaughtered.'},
+  {v:DOUBT,name:'Rennet',animal:true,re:/\brennet\b/i,not:/\b(microbial|vegetarian|vegetable|plant)\s*$/i,
+   why:'Animal rennet comes from a calf stomach. Microbial and vegetable rennet are fine.'},
+  {v:DOUBT,name:'Whey',animal:true,re:/\bwhey\b/i,
+   why:'A cheese by-product, so it inherits the rennet question.'},
+  {v:DOUBT,name:'Casein',animal:true,re:/\bcasein(ate)?s?\b/i,
+   why:'Milk protein usually separated using rennet.'},
+  {v:DOUBT,name:'Mono- and diglycerides',animal:true,re:/\b(mono|di)-?\s*and\s*-?\s*(di|mono)-?glycerides?\b|\b(mono|di)glycerides?\b/i,
+   why:'Made from fats that may be animal or plant.'},
+  {v:DOUBT,name:'Emulsifier (unspecified)',animal:true,re:/\bemulsifiers?\b/i,
+   why:'Most emulsifiers are fat-derived. Without a named source it cannot be confirmed.'},
+  {v:DOUBT,name:'Glycerine',animal:true,re:/\bglycer(ine|ol|in)\b/i,
+   why:'Made from either animal fat or vegetable oil.'},
+  {v:DOUBT,name:'Stearic acid / stearates',animal:true,re:/\bstear(ic\s*acid|ate|oyl|yl)\b/i,
+   why:'Can be rendered from animal fat.'},
+  {v:DOUBT,name:'Natural flavouring',animal:true,re:/\bnatural\s*flavou?r(ing|s|ings)?\b/i,
+   why:'A legal catch-all. The source is not disclosed and can include animal extracts.'},
+  {v:DOUBT,name:'Enzymes',animal:true,re:/\benzymes?\b/i,not:/\b(microbial|fungal|plant)\s*$/i,
+   why:'Enzymes such as lipase and pepsin are often taken from animal tissue.'},
+  {v:DOUBT,name:'Animal fat',animal:true,re:/\b(tallow|suet|dripping|animal\s*(fat|oil)|beef\s*fat|schmaltz)\b/i,
+   why:'Permissible only if the animal was slaughtered according to Islamic requirements.'},
+  {v:DOUBT,name:'Shortening',animal:true,re:/\bshortening\b/i,not:/\b(vegetable|palm|plant)\s*$/i,
+   why:'May be made with animal fat unless stated as vegetable.'},
+  {v:DOUBT,name:'Collagen',animal:true,re:/\bcollagen\b/i,why:'Taken from animal connective tissue.'},
+  {v:DOUBT,name:'Shellac / glaze',animal:false,re:/\b(shellac|confectioner'?s?\s*glaze|resinous\s*glaze)\b/i,
+   why:'A resin secreted by the lac insect. Scholars differ on it.'},
+  {v:DOUBT,name:'L-cysteine',animal:true,re:/\bl?-?\s*cystein?e\b/i,
+   why:'May be made from duck feathers or hair, though synthetic versions exist.'},
+  {v:DOUBT,name:'Albumen',animal:true,re:/\balbumin|albumen\b/i,why:'Protein from egg white or blood serum.'},
+  {v:DOUBT,name:'Vitamin D3',animal:true,re:/\b(vitamin\s*d3|cholecalciferol)\b/i,
+   why:'Usually from sheep lanolin, sometimes from fish. Lichen-sourced versions exist.'},
+  {v:DOUBT,name:'Lanolin',animal:true,re:/\blanolin\b/i,why:'Wool grease from sheep.'},
+  {v:DOUBT,name:'Isinglass',animal:true,re:/\bisinglass\b/i,why:'A clarifying agent made from fish bladders.'},
+  {v:DOUBT,name:'Bone char',animal:true,re:/\bbone\s*(char|phosphate|ash)\b/i,why:'Made from animal bone.'},
+  {v:DOUBT,name:'Marshmallow',animal:true,re:/\bmarshmallows?\b/i,why:'Almost always set with gelatine.'},
+  {v:DOUBT,name:'Lipase or pepsin',animal:true,re:/\b(lipase|pepsin|trypsin|rennin)\b/i,
+   why:'Enzymes commonly taken from animal stomachs.'},
+  {v:NOTE ,name:'Lecithin',animal:true,re:/\blecithins?\b/i,
+   why:'Nearly always soy or sunflower. Egg lecithin exists but is rare and usually labelled.'},
+  {v:NOTE ,name:'Mixed with milk or egg',animal:true,re:/\b(milk|butter|cream|cheese|egg|yoghurt|yogurt)\b/i,
+   why:'Dairy and eggs are permissible in themselves; listed so you can see what the animal content is.'}
+];
+
+/* ════════════════════════════════════════════════════
+   CLASSIFIER
+   ════════════════════════════════════════════════════ */
+const RANK = {haram:3, mushbooh:2, note:1};
+
+function eLookup(code){
+  if (E_RULES[code]) return E_RULES[code];
+  const base = code.replace(/[a-z]+$/,'');          // e472a → e472, e500ii → e500
+  if (base !== code && E_RULES[base]) return E_RULES[base];
+  const base2 = code.replace(/[ivx]+$/,'');
+  if (base2 !== code && E_RULES[base2]) return E_RULES[base2];
+  return null;
+}
+
+function scanText(text){
+  if (!text) return [];
+  const flat = ' ' + text.toLowerCase().replace(/\s+/g,' ') + ' ';
+  const out = [];
+  for (const rule of TEXT_RULES){
+    // Check every occurrence: a suppressed one ("wine vinegar") must not hide a real one.
+    const re = new RegExp(rule.re.source, rule.re.flags.replace('g','') + 'g');
+    let m, hit = null;
+    while ((m = re.exec(flat)) !== null){
+      if (m[0] === ''){ re.lastIndex++; continue; }
+      if (rule.not && rule.not.test(flat.slice(Math.max(0, m.index - 22), m.index))) continue;
+      const end = m.index + m[0].length;
+      if (rule.notAfter && rule.notAfter.test(flat.slice(end, end + 22))) continue;
+      hit = m[0].trim().replace(/\s+/g,' ');
+      break;
+    }
+    if (hit) out.push({v:rule.v, name:rule.name, why:rule.why, animal:rule.animal, code:hit, src:'label'});
+  }
+  return out;
+}
+
+function scanAdditives(tags){
+  const out = [];
+  for (const tag of tags||[]){
+    const code = String(tag).replace(/^en:/,'').toLowerCase();
+    const rule = eLookup(code);
+    if (!rule || !rule[0]) continue;
+    out.push({v:rule[0], name:rule[1], why:rule[2], animal:rule[3],
+              code:code.toUpperCase(), src:'additive'});
+  }
+  return out;
+}
+
+function dedupe(findings){
+  const seen = new Map();
+  for (const f of findings){
+    const prev = seen.get(f.name);
+    if (!prev || RANK[f.v] > RANK[prev.v]) seen.set(f.name, f);
+  }
+  return [...seen.values()].sort((a,b)=>RANK[b.v]-RANK[a.v]);
+}
+
+/**
+ * @param {{additives?:string[], text?:string, analysis?:string[], labels?:string[], hasData:boolean}} input
+ */
+/** E-numbers printed on the packet, so a pasted or photographed list gets the same table. */
+function eNumbersInText(text){
+  const out = [];
+  const re = /\bE\s?-?\s?(\d{3,4}[a-z]?)\b/gi;
+  let m;
+  while ((m = re.exec(text||'')) !== null) out.push('en:e' + m[1].toLowerCase());
+  return out;
+}
+
+function classify(input){
+  const additives = [...(input.additives||[]), ...eNumbersInText(input.text)];
+  let findings = dedupe([...scanAdditives(additives), ...scanText(input.text)]);
+
+  // When the label names the actual emulsifier, "unspecified" is no longer true.
+  if (findings.some(f => f.src==='additive' && /glycerid|stearat|sorbitan|lactylate|polysorbate/i.test(f.name)))
+    findings = findings.filter(f => f.name !== 'Emulsifier (unspecified)');
+
+  const labels   = input.labels || [];
+  const analysis = input.analysis || [];
+  const isVegan  = analysis.includes('en:vegan') || labels.some(l=>/vegan/.test(l));
+  const isHalalCertified = labels.some(l=>/halal/.test(l)) || /\bhalal\s*(certified)?\b/i.test(input.text||'');
+
+  // A confirmed plant-only product answers the "animal or plant?" question.
+  if (isVegan){
+    for (const f of findings) if (f.animal) { f.resolved = 'Resolved: product is certified vegan, so this is plant-derived.'; }
+  }
+
+  const live = findings.filter(f=>!f.resolved);
+  let verdict;
+  if (!input.hasData)                                   verdict = 'none';
+  else if (live.some(f=>f.v===HARAM))                   verdict = 'haram';
+  else if (live.some(f=>f.v===DOUBT))                   verdict = 'mushbooh';
+  else                                                  verdict = 'ok';
+
+  return {verdict, findings, isVegan, isHalalCertified};
+}
+
+const VERDICT_COPY = {
+  haram   :{icon:'✕', label:'Contains prohibited',  say:'The ingredient list names something prohibited outright.'},
+  mushbooh:{icon:'?', label:'Needs checking',       say:'Nothing is clearly prohibited, but some ingredients could come from either animal or plant sources.'},
+  ok      :{icon:'✓', label:'Nothing flagged',      say:'No prohibited or doubtful ingredients found in the list. This does not cover slaughter method or shared equipment.'},
+  none    :{icon:'–', label:'No ingredient list',   say:'The product was not found, or the database has no ingredients for it. Paste the label text to check it.'}
+};
+
+/* ════════════════════════════════════════════════════
+   OPEN FOOD FACTS
+   ════════════════════════════════════════════════════ */
+const OFF_FIELDS = ['product_name','product_name_en','brands','quantity','image_front_small_url',
+  'ingredients_text','ingredients_text_en','additives_tags','ingredients_analysis_tags',
+  'labels_tags','countries'].join(',');
+
+async function lookup(barcode){
+  const url = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json?fields=${OFF_FIELDS}`;
+  const res = await fetch(url, {headers:{'Accept':'application/json'}});
+  if (!res.ok){
+    if (res.status === 404) return null;
+    throw new Error('Lookup failed (' + res.status + ')');
+  }
+  const data = await res.json();
+  if (data.status !== 1 || !data.product) return null;
+  return data.product;
+}
+
+/* ════════════════════════════════════════════════════
+   BARCODE DECODING FROM AN IMAGE
+   ════════════════════════════════════════════════════ */
+const BC_FORMATS = ['ean_13','ean_8','upc_a','upc_e','code_128','code_39','itf'];
+let detector = null;
+function getDetector(){
+  if (detector !== null) return detector;
+  if (typeof window.BarcodeDetector === 'function'){
+    try { detector = new window.BarcodeDetector({formats:BC_FORMATS}); }
+    catch { detector = false; }
+  } else detector = false;
+  return detector;
+}
+
+async function decodeFromBlob(blob){
+  const det = getDetector();
+  if (!det) return null;
+  let bmp;
+  try { bmp = await createImageBitmap(blob); } catch { return null; }
+  try {
+    const codes = await det.detect(bmp);
+    return codes.length ? codes[0].rawValue : null;
+  } catch { return null; }
+  finally { bmp.close && bmp.close(); }
+}
+
+/* ════════════════════════════════════════════════════
+   UI
+   ════════════════════════════════════════════════════ */
+const $ = sel => document.querySelector(sel);
+const statusEl = $('#status'), resultEl = $('#result');
+
+function esc(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function setStatus(html){
+  if (!html){ statusEl.hidden = true; statusEl.innerHTML=''; return; }
+  statusEl.hidden = false;
+  statusEl.innerHTML = html;
+}
+
+function renderFinding(f){
+  return `<li class="f s-${esc(f.v)}${f.resolved?' resolved':''}">
+    <span class="fcode">${esc(f.code)}</span>
+    <div class="minw">
+      <p class="fname">${esc(f.name)}</p>
+      <p class="fwhy">${esc(f.why||'')}</p>
+      ${f.resolved?`<p class="fres">${esc(f.resolved)}</p>`:''}
+    </div></li>`;
+}
+
+function render(view){
+  const {verdict, findings, isVegan, isHalalCertified} = view.result;
+  const c = VERDICT_COPY[verdict];
+  const p = view.product;
+
+  const tags = [];
+  if (isHalalCertified) tags.push('<span class="tag good">Halal label on record</span>');
+  if (isVegan)          tags.push('<span class="tag good">Certified vegan</span>');
+  if (p && p.countries) tags.push(`<span class="tag">${esc(p.countries.split(',')[0].trim())}</span>`);
+
+  const ing = view.text || '';
+
+  resultEl.innerHTML = `
+    <div class="verdict v-${esc(verdict)}">
+      ${view.isExample?'<span class="example-tag">Example scan</span>':''}
+      <div class="vtop">
+        <div class="vicon" aria-hidden="true">${c.icon}</div>
+        <div class="minw">
+          <p class="vlabel">${c.label}</p>
+          <p class="vsay">${c.say}</p>
+        </div>
+      </div>
+
+      ${p ? `<div class="prod">
+        ${p.image_front_small_url?`<img src="${esc(p.image_front_small_url)}" alt="">`:''}
+        <div class="minw">
+          <p class="pname">${esc(p.product_name_en||p.product_name||'Unnamed product')}</p>
+          ${p.brands?`<p class="pmeta">${esc(p.brands)}${p.quantity?' · '+esc(p.quantity):''}</p>`:''}
+          ${view.barcode?`<p class="bc">${esc(view.barcode)}</p>`:''}
+        </div></div>` : ''}
+
+      ${tags.length?`<div class="tags">${tags.join('')}</div>`:''}
+    </div>
+
+    ${findings.length?`
+      <div class="panel" style="margin-top:14px">
+        <h2>Why</h2>
+        <p class="hint">Each line is an ingredient the rules matched, and the reason it was flagged.</p>
+        <ul class="findings">${findings.map(renderFinding).join('')}</ul>
+      </div>`:''}
+
+    ${ing?`<div class="panel" style="margin-top:14px">
+      <details${findings.length?'':' open'}>
+        <summary>Full ingredient list</summary>
+        <p class="ingtext">${esc(ing)}</p>
+      </details>
+      <p class="src">${view.isExample
+        ? 'Example only. Scan or paste a real product to replace it.'
+        : (view.barcode?'Product data from Open Food Facts.':'Checked from the text you pasted.')}</p>
+    </div>`:''}
+  `;
+  if (!view.isExample) resultEl.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+/* ── history (per-device convenience only) ───────── */
+const HKEY = 'ingredient-check-history-v1';
+function readHist(){
+  try { return JSON.parse(localStorage.getItem(HKEY)||'[]'); } catch { return []; }
+}
+function writeHist(list){
+  try { localStorage.setItem(HKEY, JSON.stringify(list.slice(0,12))); } catch {}
+}
+function pushHist(entry){
+  const list = readHist().filter(e=>e.barcode !== entry.barcode || !entry.barcode);
+  list.unshift(entry);
+  writeHist(list);
+  renderHist();
+}
+function renderHist(){
+  const list = readHist();
+  $('#histPanel').hidden = list.length === 0;
+  $('#hist').innerHTML = list.map((e,i)=>`
+    <button class="hitem" data-i="${i}">
+      <span class="dot d-${esc(e.verdict)}"></span>
+      <span class="hname">${esc(e.name)}</span>
+      ${e.barcode?`<span class="hbc">${esc(e.barcode)}</span>`:''}
+    </button>`).join('');
+}
+$('#hist').addEventListener('click', ev=>{
+  const btn = ev.target.closest('.hitem'); if (!btn) return;
+  const entry = readHist()[Number(btn.dataset.i)];
+  if (!entry) return;
+  if (entry.barcode) runBarcode(entry.barcode);
+  else { $('#textInput').value = entry.text||''; switchMode('text'); runText(entry.text||''); }
+});
+
+/* ── flows ───────────────────────────────────────── */
+async function runBarcode(barcode){
+  barcode = String(barcode).replace(/\D/g,'');
+  if (!barcode){ setStatus('<div class="err">That doesn\'t look like a barcode. Enter the digits under the bars.</div>'); return; }
+  setStatus(`<div class="panel"><span class="spin"></span>Looking up ${esc(barcode)}…</div>`);
+  resultEl.innerHTML = '';
+  let product;
+  try { product = await lookup(barcode); }
+  catch (err){
+    setStatus(`<div class="err"><strong>Couldn't reach the database.</strong><br>${esc(err.message)}. Check your connection, or paste the ingredients instead.</div>`);
+    return;
+  }
+  setStatus('');
+
+  if (!product){
+    render({
+      result: classify({hasData:false}),
+      product: null, barcode, text:'', isExample:false
+    });
+    pushHist({name:'Not in database', barcode, verdict:'none'});
+    return;
+  }
+
+  const text = product.ingredients_text_en || product.ingredients_text || '';
+  const result = classify({
+    additives: product.additives_tags,
+    text,
+    analysis: product.ingredients_analysis_tags,
+    labels: product.labels_tags,
+    hasData: Boolean(text) || Boolean((product.additives_tags||[]).length)
+  });
+  render({result, product, barcode, text, isExample:false});
+  pushHist({name: product.product_name_en||product.product_name||'Unnamed product', barcode, verdict:result.verdict});
+}
+
+function runText(text){
+  text = (text||'').trim();
+  if (!text){ setStatus('<div class="err">Paste the ingredient list first.</div>'); return; }
+  setStatus('');
+  const result = classify({text, hasData:true});
+  render({result, product:null, barcode:'', text, isExample:false});
+  pushHist({name:'Pasted ingredients', barcode:'', verdict:result.verdict, text});
+}
+
+/* ── input modes ─────────────────────────────────── */
+const MODES = ['scan','code','text'];
+function switchMode(which){
+  for (const m of MODES){
+    $('#m-'+m).setAttribute('aria-selected', String(m===which));
+    $('#p-'+m).hidden = (m !== which);
+  }
+  if (which !== 'scan') stopCamera();
+}
+for (const m of MODES) $('#m-'+m).addEventListener('click', ()=>switchMode(m));
+
+$('#codeForm').addEventListener('submit', e=>{ e.preventDefault(); runBarcode($('#codeInput').value); });
+$('#textForm').addEventListener('submit', e=>{ e.preventDefault(); runText($('#textInput').value); });
+
+/* ── photo capture ───────────────────────────────── */
+$('#photoBtn').addEventListener('click', ()=>$('#photoInput').click());
+$('#photoInput').addEventListener('change', async e=>{
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  setStatus('<div class="panel"><span class="spin"></span>Reading the barcode…</div>');
+  const code = await decodeFromBlob(file);
+  if (code) runBarcode(code);
+  else setStatus(`<div class="err"><strong>No barcode found in that photo.</strong><br>Try again with the barcode filling more of the frame and in focus — or type the number under the bars on the Barcode tab.</div>`);
+});
+
+/* ── live camera (works outside a sandboxed frame) ─ */
+let stream = null, loopId = 0;
+function stopCamera(){
+  if (loopId) { cancelAnimationFrame(loopId); loopId = 0; }
+  if (stream){ stream.getTracks().forEach(t=>t.stop()); stream = null; }
+  $('#camWrap').hidden = true;
+  $('#liveBtn').textContent = 'Start camera';
+}
+async function startCamera(){
+  const det = getDetector();
+  if (!det){ setStatus('<div class="err">This browser can\'t decode barcodes. Use the Barcode tab to type the number.</div>'); return; }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}});
+  } catch {
+    setStatus('<div class="err"><strong>Camera unavailable.</strong><br>Take a photo instead, or type the barcode.</div>');
+    return;
+  }
+  const video = $('#cam');
+  video.srcObject = stream;
+  await video.play().catch(()=>{});
+  $('#camWrap').hidden = false;
+  $('#liveBtn').textContent = 'Stop camera';
+  setStatus('');
+
+  let busy = false;
+  const tick = async ()=>{
+    if (!stream) return;
+    if (!busy && video.readyState >= 2){
+      busy = true;
+      try {
+        const codes = await det.detect(video);
+        if (codes.length){
+          const code = codes[0].rawValue;
+          stopCamera();
+          runBarcode(code);
+          return;
+        }
+      } catch {}
+      busy = false;
+    }
+    loopId = requestAnimationFrame(tick);
+  };
+  loopId = requestAnimationFrame(tick);
+}
+$('#liveBtn').addEventListener('click', ()=> stream ? stopCamera() : startCamera());
+
+/* Live scanning needs both a camera and a decoder; otherwise offer photos only. */
+(function initScanMode(){
+  const canLive = Boolean(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) && getDetector();
+  $('#liveBtn').hidden = !canLive;
+  $('#scanHint').textContent = canLive
+    ? 'Point the camera at the barcode and hold steady, or take a photo instead.'
+    : 'Take a photo of the barcode. (Live scanning needs camera access, which this view does not allow.)';
+  if (!getDetector()){
+    $('#photoBtn').hidden = true;
+    $('#scanHint').textContent = 'This browser can\'t read barcodes from images. Type the number on the Barcode tab, or paste the ingredients.';
+  }
+})();
+
+/* ════════════════════════════════════════════════════
+   LABEL OCR
+   Loaded on first use so the core checker stays fast
+   and keeps working with no network.
+   ════════════════════════════════════════════════════ */
+const TESSERACT_URL = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+let scriptPromise = null, ocrWorker = null;
+let cropImg = null, sel = null, dragging = false, dragStart = null;
+
+function loadScript(src){
+  if (scriptPromise) return scriptPromise;
+  scriptPromise = new Promise((resolve, reject)=>{
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = ()=>resolve();
+    s.onerror = ()=>{ scriptPromise = null; reject(new Error('Could not load the text reader.')); };
+    document.head.appendChild(s);
+  });
+  return scriptPromise;
+}
+
+function ocrSay(msg, pct){
+  const m = $('#ocrMsg'), bar = $('#ocrBar');
+  if (msg == null){ m.hidden = true; bar.hidden = true; return; }
+  m.hidden = false; m.textContent = msg;
+  if (pct == null) bar.hidden = true;
+  else { bar.hidden = false; bar.firstElementChild.style.width = Math.round(pct*100) + '%'; }
+}
+
+/* ── crop stage ──────────────────────────────────── */
+function showCrop(img){
+  cropImg = img;
+  const wrap = $('#cropWrap');
+  const c = $('#cropCanvas');
+  const maxW = Math.min(wrap.clientWidth || 360, 900);
+  const k = maxW / img.naturalWidth;
+  c.width  = Math.max(1, Math.round(img.naturalWidth  * k));
+  c.height = Math.max(1, Math.round(img.naturalHeight * k));
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+
+  $('#cropStage').hidden = false;
+  ocrSay(null);
+  // Start with a wide band across the middle — where a label's text usually sits.
+  requestAnimationFrame(()=>{
+    const r = c.getBoundingClientRect();
+    sel = {x: r.width*0.07, y: r.height*0.28, w: r.width*0.86, h: r.height*0.44};
+    paintSel();
+    $('#cropStage').scrollIntoView({behavior:'smooth', block:'nearest'});
+  });
+}
+
+function paintSel(){
+  const box = $('#cropBox');
+  if (!sel){ box.hidden = true; return; }
+  box.hidden = false;
+  box.style.left   = sel.x + 'px';
+  box.style.top    = sel.y + 'px';
+  box.style.width  = sel.w + 'px';
+  box.style.height = sel.h + 'px';
+}
+
+(function wireCrop(){
+  const wrap = $('#cropWrap');
+  const pt = ev => {
+    const r = $('#cropCanvas').getBoundingClientRect();
+    return {x: Math.min(Math.max(ev.clientX - r.left, 0), r.width),
+            y: Math.min(Math.max(ev.clientY - r.top , 0), r.height)};
+  };
+  wrap.addEventListener('pointerdown', ev=>{
+    if (!cropImg) return;
+    dragging = true; dragStart = pt(ev);
+    wrap.setPointerCapture(ev.pointerId);
+    sel = {x:dragStart.x, y:dragStart.y, w:0, h:0};
+    paintSel();
+  });
+  wrap.addEventListener('pointermove', ev=>{
+    if (!dragging) return;
+    const p = pt(ev);
+    sel = {x: Math.min(p.x, dragStart.x), y: Math.min(p.y, dragStart.y),
+           w: Math.abs(p.x - dragStart.x), h: Math.abs(p.y - dragStart.y)};
+    paintSel();
+  });
+  const end = ()=>{
+    if (!dragging) return;
+    dragging = false;
+    const r = $('#cropCanvas').getBoundingClientRect();
+    // A tap rather than a drag: fall back to a usable default band.
+    if (sel.w < 24 || sel.h < 16)
+      sel = {x: r.width*0.07, y: r.height*0.28, w: r.width*0.86, h: r.height*0.44};
+    paintSel();
+  };
+  wrap.addEventListener('pointerup', end);
+  wrap.addEventListener('pointercancel', end);
+})();
+
+/* ── preprocess: grey, normalise contrast, upscale small crops ── */
+function prepare(img, rect){
+  let targetW = rect.w;
+  if (targetW < 1100) targetW = Math.min(rect.w * 2.5, 2200);
+  if (targetW > 2200) targetW = 2200;
+  const k = targetW / rect.w;
+
+  const c = document.createElement('canvas');
+  c.width  = Math.max(1, Math.round(rect.w * k));
+  c.height = Math.max(1, Math.round(rect.h * k));
+  const ctx = c.getContext('2d', {willReadFrequently:true});
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, rect.x, rect.y, rect.w, rect.h, 0, 0, c.width, c.height);
+
+  const d = ctx.getImageData(0, 0, c.width, c.height), px = d.data;
+  const hist = new Uint32Array(256);
+  for (let i = 0; i < px.length; i += 4){
+    const g = (px[i]*0.299 + px[i+1]*0.587 + px[i+2]*0.114) | 0;
+    px[i] = px[i+1] = px[i+2] = g;
+    hist[g]++;
+  }
+  // Stretch the middle 96% of the tonal range so faint print separates from the packet.
+  const total = c.width * c.height;
+  let lo = 0, hi = 255, acc = 0;
+  for (let i = 0; i < 256; i++){ acc += hist[i]; if (acc > total*0.02){ lo = i; break; } }
+  acc = 0;
+  for (let i = 255; i >= 0; i--){ acc += hist[i]; if (acc > total*0.02){ hi = i; break; } }
+  const range = Math.max(1, hi - lo);
+  for (let i = 0; i < px.length; i += 4){
+    const v = Math.min(255, Math.max(0, (px[i] - lo) * 255 / range));
+    px[i] = px[i+1] = px[i+2] = v;
+  }
+  ctx.putImageData(d, 0, 0);
+  return c;
+}
+
+const OCR_STEPS = {
+  'loading tesseract core':'Loading the text reader…',
+  'initializing tesseract':'Starting the text reader…',
+  'loading language traineddata':'Downloading the English model (first time only)…',
+  'initializing api':'Almost ready…',
+  'recognizing text':'Reading the label…'
+};
+
+async function getWorker(){
+  if (ocrWorker) return ocrWorker;
+  await loadScript(TESSERACT_URL);
+  if (typeof Tesseract === 'undefined') throw new Error('Could not load the text reader.');
+  ocrWorker = await Tesseract.createWorker('eng', 1, {
+    logger: m => { if (OCR_STEPS[m.status]) ocrSay(OCR_STEPS[m.status], m.progress); }
+  });
+  await ocrWorker.setParameters({tessedit_pageseg_mode: '6'});  // one uniform block of text
+  return ocrWorker;
+}
+
+/** OCR output is noisy by nature — tidy the predictable damage, leave the rest to the reader. */
+function tidy(raw){
+  let t = String(raw||'')
+    .replace(/\r/g,'')
+    .replace(/([A-Za-z])\|([A-Za-z])/g,'$1l$2')   // a pipe between letters is really an l
+    .replace(/\|/g,' ')                            // a stray pipe is the edge of the packet
+    .replace(/\s*\n\s*/g,' ')
+    .replace(/\s{2,}/g,' ')
+    .replace(/\s+([,.;:)])/g,'$1')
+    .replace(/\(\s+/g,'(')
+    .trim();
+
+  // E-numbers carry the most weight, so repair the characters OCR usually mangles in them.
+  const toDigits = s => s.replace(/[Oo]/g,'0').replace(/[IiLl]/g,'1').replace(/[Ss]/g,'5');
+  t = t.replace(/\bE\s?([0-9OoIiLlSs]{2,4}[a-z]?)\b/g, (m, body)=>{
+    if (!/\d/.test(body)) return m;             // no real digit: not an E-number
+    const whole = toDigits(body);
+    if (/^\d{3,4}$/.test(whole)) return 'E' + whole;
+    const head = toDigits(body.slice(0,-1)), tail = body.slice(-1);
+    if (/^[a-z]$/i.test(tail) && /^\d{3,4}$/.test(head)) return 'E' + head + tail.toLowerCase();
+    return m;
+  });
+  return t;
+}
+
+async function readLabel(){
+  if (!cropImg || !sel) return;
+  const r = $('#cropCanvas').getBoundingClientRect();
+  const kx = cropImg.naturalWidth / r.width, ky = cropImg.naturalHeight / r.height;
+  const rect = {
+    x: Math.round(sel.x*kx), y: Math.round(sel.y*ky),
+    w: Math.max(8, Math.round(sel.w*kx)), h: Math.max(8, Math.round(sel.h*ky))
+  };
+
+  $('#ocrRun').disabled = true;
+  ocrSay('Preparing the image…', 0);
+  try {
+    const canvas = prepare(cropImg, rect);
+    const worker = await getWorker();
+    const {data} = await worker.recognize(canvas);
+    const text = tidy(data.text);
+    ocrSay(null);
+    if (text.replace(/[^a-z]/gi,'').length < 12){
+      ocrSay('Not much text came back. Try a tighter crop, better light, or type it in below.');
+      return;
+    }
+    $('#cropStage').hidden = true;
+    cropImg = null; sel = null;
+    $('#textInput').value = text;
+    runText(text);
+    setStatus('<div class="panel"><strong>Read from your photo.</strong><br><span style="color:var(--muted);font-size:13px">Check the text below against the packet and fix anything misread, then tap Check ingredients again.</span></div>');
+  } catch (err){
+    ocrSay(null);
+    setStatus(`<div class="err"><strong>Couldn't read the label.</strong><br>${esc(err.message||String(err))} You can type the ingredients in below instead.</div>`);
+  } finally {
+    $('#ocrRun').disabled = false;
+  }
+}
+
+$('#ocrBtn').addEventListener('click', ()=>$('#ocrInput').click());
+$('#ocrCancel').addEventListener('click', ()=>{
+  $('#cropStage').hidden = true; cropImg = null; sel = null; ocrSay(null);
+});
+$('#ocrRun').addEventListener('click', readLabel);
+$('#ocrInput').addEventListener('change', e=>{
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = ()=>{ URL.revokeObjectURL(url); showCrop(img); };
+  img.onerror = ()=>{ URL.revokeObjectURL(url); setStatus('<div class="err">That image could not be opened.</div>'); };
+  img.src = url;
+});
+
+/* ── theme ───────────────────────────────────────── */
+const TKEY='ingredient-check-theme';
+try { const t = localStorage.getItem(TKEY); if (t) document.documentElement.dataset.theme = t; } catch {}
+$('#themeBtn').addEventListener('click', ()=>{
+  const cur = document.documentElement.dataset.theme
+    || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem(TKEY, next); } catch {}
+});
+
+/* ── opening state ───────────────────────────────── */
+renderHist();
+(function showExample(){
+  if (readHist().length) return;
+  const text = 'Sugar, wheat flour, palm oil, skimmed milk powder, fat-reduced cocoa, emulsifier (E471), glucose syrup, raising agent (E503), natural flavouring, gelatine.';
+  const result = classify({additives:['en:e471','en:e492','en:e503'], text, hasData:true});
+  render({result, product:null, barcode:'', text, isExample:true});
+})();
+
+/* ── offline shell (https or localhost only) ─────── */
+if ('serviceWorker' in navigator &&
+    (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+</script></body>
+</html>
